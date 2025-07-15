@@ -1,1 +1,2 @@
-CSV_FILENAME = "titulares.csv"
+CSV_FILENAME = "data/titulares.csv"
+LOG_FILENAME = "data/titulares.log"
