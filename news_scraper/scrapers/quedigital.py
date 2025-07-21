@@ -134,6 +134,68 @@ class QueDigitalScraper(NewsScraper):
 
         return articles
 
+    def _parse_special_articles(self, soup: BeautifulSoup) -> list[dict]:
+        """Extrae los artículos especiales de las secciones con class 'especiales'"""
+        articles = []
+
+        # Encontrar todas las secciones especiales
+        special_sections = soup.find_all("div", class_=["especiales"])
+
+        if not special_sections:
+            self.log("No se encontraron secciones especiales", level="warning")
+            return articles
+
+        # Procesar cada sección especial
+        for section in special_sections:
+            # Encontrar todos los widgets de artículos especiales
+            special_widgets = section.find_all("div", class_="widget_singlepostwidget")
+
+            for widget in special_widgets:
+                try:
+                    # Extraer el título principal (h2.titulogrupo)
+                    main_title = widget.find("h2", class_="titulogrupo")
+                    if main_title:
+                        title = main_title.get_text(strip=True)
+                    else:
+                        # Si no hay título principal, buscar el título normal
+                        title_tag = widget.find("h2")
+                        if not title_tag:
+                            continue
+                        title = title_tag.get_text(strip=True)
+
+                    # Extraer URL
+                    link = widget.find("a")
+                    if not link or not link.get("href"):
+                        continue
+
+                    url = urljoin(self.url, link["href"])
+
+                    # Extraer la categoría/sección
+                    category_tag = widget.find("div", class_="categ")
+                    category = (
+                        category_tag.get_text(strip=True)
+                        if category_tag
+                        else self._extract_section_from_url(url)
+                    )
+
+                    articles.append(
+                        {
+                            "fecha": date.today().isoformat(),
+                            "medio": self.name,
+                            "titular": title,
+                            "zona_portada": "especiales",
+                            "seccion": category,
+                            "url": url,
+                        }
+                    )
+
+                except Exception as e:
+                    self.log(f"Error al procesar artículo especial: {e}", level="error")
+                    continue
+
+        self.log(f"Se encontraron {len(articles)} artículos especiales", level="info")
+        return articles
+
     def _parse_double_inferior_articles(self, soup: BeautifulSoup) -> List[Dict]:
         """Extrae los artículos del grupo doble inferior"""
         articles = []
@@ -225,6 +287,56 @@ class QueDigitalScraper(NewsScraper):
         self.log(
             f"Se encontraron {len(articles)} artículos en zona triple_inferior",
             level="info",
+        )
+        return articles
+
+    def _parse_mas_vistas_articles(self, soup: BeautifulSoup) -> list[dict]:
+        """Extrae los artículos de la sección 'LAS MÁS VISTAS'"""
+        articles = []
+
+        # Encontrar la sección de más vistas
+        mas_vistas_section = soup.find("div", class_="widget popular-posts")
+
+        if not mas_vistas_section:
+            self.log("No se encontró la sección de más vistas", level="warning")
+            return articles
+
+        # Encontrar todos los items de la lista
+        items = mas_vistas_section.find_all("li")
+
+        for item in items:
+            try:
+                # Extraer el enlace y título
+                link = item.find("a", class_="wpp-post-title")
+                if not link:
+                    continue
+
+                title = link.get_text(strip=True)
+                url = link["href"]
+                url = urljoin(self.url, url)
+
+                print("title => ", title)
+                # Extraer la sección temática de la url
+                seccion = self._extract_section_from_url(url)
+
+                articles.append(
+                    {
+                        "fecha": date.today().isoformat(),
+                        "medio": self.name,
+                        "titular": title,
+                        "zona_portada": "mas_vistas",
+                        "seccion": seccion,
+                        "url": url,
+                    }
+                )
+            except Exception as e:
+                self.log(
+                    f"Error al procesar artículo de más vistas: {e}", level="error"
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en las_mas_vistas", level="info"
         )
         return articles
 
@@ -321,8 +433,12 @@ class QueDigitalScraper(NewsScraper):
             # obtener todas las secciones
             titulares.extend(self._parse_featured_articles(soup))
             titulares.extend(self._parse_recent_articles(soup))
+            titulares.extend(
+                self._parse_special_articles(soup)
+            )  # Añadido para artículos especiales
             titulares.extend(self._parse_double_inferior_articles(soup))
             titulares.extend(self._parse_triple_inferior_articles(soup))
+            titulares.extend(self._parse_mas_vistas_articles(soup))
             titulares.extend(self._parse_deportes_articles(soup))
             titulares.extend(self._parse_cultura_articles(soup))
 

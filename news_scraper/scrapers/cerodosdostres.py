@@ -26,7 +26,7 @@ class CerodosdostresScraper(NewsScraper):
             self.log(f"Error al obtener la página: {e}", level="error")
             raise
 
-    def _parse_generic_article(self, article_tag, zone_name: str) -> Dict:
+    def _parse_generic_article(self, article_tag, zone_name: str) -> Dict | None:
         """Método genérico para parsear cualquier artículo"""
         try:
             title_tag = article_tag.find("h2", class_="nota__titulo-item")
