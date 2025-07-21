@@ -315,7 +315,6 @@ class QueDigitalScraper(NewsScraper):
                 url = link["href"]
                 url = urljoin(self.url, url)
 
-                print("title => ", title)
                 # Extraer la sección temática de la url
                 seccion = self._extract_section_from_url(url)
 
