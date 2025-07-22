@@ -13,16 +13,17 @@ class QueDigitalScraper(NewsScraper):
             name="QueDigital",
             url="https://quedigital.com.ar",
             logger=logger,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",  # Actualizado a versión más reciente
         )
 
-        self.session.headers.update(
-            {
-                "User-Agent": self.user_agent,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
-            }
-        )
+        # Configuración de cookies (simulando consentimiento)
+        self.session.cookies.update({"cookie_consent": "true", "gdpr": "accepted"})
+
+        # Deshabilitar verificación SSL si hay problemas (útil en entornos corporativos)
+        self.session.verify = False  # ¡Solo para desarrollo!
+
+        print(f"Requests version: {requests.__version__}")
+        print(f"Session headers: {self.session.headers}")
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         """Obtiene el contenido HTML y lo parsea con BeautifulSoup"""
