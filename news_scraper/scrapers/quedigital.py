@@ -15,6 +15,20 @@ class QueDigitalScraper(NewsScraper):
             logger=logger,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         )
+        self.session.headers.update(
+            {
+                "User-Agent": self.user_agent,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+            }
+        )
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         """Obtiene el contenido HTML y lo parsea con BeautifulSoup"""
