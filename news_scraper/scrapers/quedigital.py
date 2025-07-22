@@ -74,6 +74,49 @@ class QueDigitalScraper(NewsScraper):
         )
         return articles
 
+    def _parse_superfeatured_articles(self, soup: BeautifulSoup) -> List[Dict]:
+        """Extrae los artículos super destacados"""
+        articles = []
+        superfeatured_section = soup.find("div", id="super-destacada")
+
+        if not superfeatured_section:
+            self.log("No se encontró la sección de super-destacada", level="warning")
+            return articles
+
+        # Buscar el h1 correcto que contiene el enlace (no el widgettitle)
+        title_tags = superfeatured_section.find_all("h1")
+        title_tag = next((tag for tag in title_tags if not tag.get("class")), None)
+        print("title_tag => ", title_tag)
+        if not title_tag or not title_tag.a:
+            self.log(
+                "No se encontró el título con enlace en super-destacada",
+                level="warning",
+            )
+            return articles
+
+        try:
+            title = self.clean_text(title_tag.get_text())
+            url = urljoin(self.url, title_tag.a["href"])
+            seccion = self._extract_section_from_url(url)
+
+            articles.append(
+                {
+                    "fecha": self.get_current_date(),
+                    "medio": self.name,
+                    "titular": title,
+                    "zona_portada": "super-destacada",
+                    "seccion": seccion,
+                    "url": url,
+                }
+            )
+
+            self.log(f"Artículo super destacado encontrado: {title}", level="info")
+            return articles
+
+        except Exception as e:
+            self.log(f"Error al parsear artículo super destacado: {e}", level="error")
+            return articles
+
     def _parse_recent_articles(self, soup: BeautifulSoup) -> List[Dict]:
         """Extrae los artículos recientes"""
         articles = []
@@ -381,6 +424,7 @@ class QueDigitalScraper(NewsScraper):
                     self._parse_featured_articles,
                     self._parse_recent_articles,
                     self._parse_special_articles,
+                    self._parse_superfeatured_articles,
                     self._parse_double_inferior_articles,
                     self._parse_triple_inferior_articles,
                     self._parse_mas_vistas_articles,

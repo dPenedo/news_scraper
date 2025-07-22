@@ -135,29 +135,6 @@ class CerodosdostresScraper(NewsScraper):
         self.log(f"Se encontraron {len(articles)} artículos en apertura", level="info")
         return articles
 
-    def _parse_bloque_notas(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
-        """Extrae los artículos del bloque de notas (sección inferior)"""
-        articles: List[Dict[str, str]] = []
-        bloque_notas = soup.find("div", class_="bloque-notas")
-
-        if not bloque_notas:
-            self.log("No se encontró el bloque de notas", level="warning")
-            return articles
-
-        for i, article_tag in enumerate(
-            bloque_notas.find_all("article", class_="nota--linea"), 1
-        ):
-            article_data = self._parse_generic_article(
-                cast(Tag, article_tag), f"bloque_notas_{i}"
-            )
-            if article_data:
-                articles.append(article_data)
-
-        self.log(
-            f"Se encontraron {len(articles)} artículos en bloque de notas", level="info"
-        )
-        return articles
-
     def _parse_propiedades_section(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         """Extrae los artículos de la sección Propiedades"""
         articles: List[Dict[str, str]] = []
@@ -245,6 +222,80 @@ class CerodosdostresScraper(NewsScraper):
         )
         return articles
 
+    def _parse_bloque_3notas_sections(
+        self, soup: BeautifulSoup
+    ) -> List[Dict[str, str]]:
+        """Extrae los artículos de todas las secciones con la clase 'bloque-3Notas'."""
+        articles: List[Dict[str, str]] = []
+
+        bloque_3notas_sections = soup.find_all("div", class_="bloque-3Notas")
+
+        if not bloque_3notas_sections:
+            self.log(
+                "No se encontraron secciones con la clase 'bloque-3Notas'.",
+                level="warning",
+            )
+            return articles
+
+        for section_idx, section_container in enumerate(bloque_3notas_sections):
+            section_name = f"bloque_3notas_{section_idx + 1}"  # Nombre genérico de la sección por defecto
+
+            # Intentar encontrar el título de la sección (por ejemplo, "Columnas")
+            title_block = section_container.find("div", class_="titulo_bloque")
+            if title_block:
+                title_link = title_block.find("a")
+                if title_link and title_link.get_text():
+                    section_name = (
+                        self.clean_text(title_link.get_text()).replace(" ", "_").lower()
+                    )
+
+            # Buscar el div.grid que contiene los artículos (item-4) dentro de este contenedor.
+            seccion_grid = section_container.find("div", class_="grid")
+
+            if not seccion_grid:
+                self.log(
+                    f"No se encontró el 'div.grid' dentro del bloque '{section_name}'.",
+                    level="warning",
+                )
+                continue  # Pasar a la siguiente sección si no se encuentra el grid
+
+            # Buscar todos los div.item-4 que contienen los artículos dentro de este div.grid
+            items = seccion_grid.find_all("div", class_="item-4")
+
+            if not items:
+                self.log(
+                    f"No se encontraron elementos 'item-4' dentro de la sección '{section_name}'.",
+                    level="warning",
+                )
+                continue  # Pasar a la siguiente sección si no hay items
+
+            for i, item in enumerate(items, 1):
+                try:
+                    article_tag = item.find("article", class_="nota--gral")
+                    if not article_tag:
+                        continue
+
+                    # Usar el nombre de la sección identificada como default_section para _parse_generic_article
+                    article_data = self._parse_generic_article(
+                        cast(Tag, article_tag),
+                        f"{section_name}_{i}",
+                    )
+                    if article_data:
+                        articles.append(article_data)
+
+                except Exception as e:
+                    self.log(
+                        f"Error al parsear artículo {i} de la sección '{section_name}': {e}",
+                        level="error",
+                    )
+                    continue
+
+        self.log(
+            f"Se encontraron un total de {len(articles)} artículos en las secciones 'bloque-3notas (Virales y columnas)'.",
+            level="info",
+        )
+        return articles
+
     def _parse_historias_aca(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         """Extrae los artículos de la sección 'Historias de acá'"""
         articles: List[Dict[str, str]] = []
@@ -303,88 +354,198 @@ class CerodosdostresScraper(NewsScraper):
         )
         return articles
 
-    def _parse_columnas_section(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
-        """Extrae los artículos de la sección Columnas"""
+    def _parse_liga_profesional(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+        """Extrae los artículos de la sección Liga Profesional"""
+        articles: List[Dict[str, str]] = []
+        liga_section = soup.find("div", class_="bloque-mundial")
+
+        if not liga_section:
+            self.log("No se encontró la sección de Liga Profesional", level="warning")
+            return articles
+
+        # Buscar el contenedor de notas dentro de la sección
+        notas_container = liga_section.find("div", class_="mundial-notasFijas")
+        if not notas_container:
+            self.log(
+                "No se encontró el contenedor de notas en Liga Profesional",
+                level="warning",
+            )
+            return articles
+
+        # Procesar todos los artículos
+        for i, article_tag in enumerate(notas_container.find_all("article"), 1):
+            try:
+                # Determinar el tipo de artículo (principal o secundario)
+                if "nota--gral" in article_tag.get("class", []):
+                    article_type = "principal"
+                else:
+                    article_type = f"secundaria_{i}"
+
+                article_data = self._parse_generic_article(
+                    cast(Tag, article_tag), f"liga_profesional_{article_type}"
+                )
+
+                if article_data:
+                    # Si es la nota principal, asegurarnos de que la sección sea "Liga Profesional"
+                    if article_type == "principal":
+                        article_data["seccion"] = "Liga Profesional"
+                    articles.append(article_data)
+
+            except Exception as e:
+                self.log(
+                    f"Error al parsear artículo {i} de Liga Profesional: {e}",
+                    level="error",
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en Liga Profesional",
+            level="info",
+        )
+        return articles
+
+    def _parse_notas_relleno(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+        """Extrae los artículos de los bloques 'relleno' que contienen notas variadas"""
         articles: List[Dict[str, str]] = []
 
-        try:
-            # 1. Encontrar el título "Columnas"
-            titulo_columnas = soup.find("a", href="/columnas", string="Columnas")
-            if not titulo_columnas:
-                self.log("No se encontró el título de Columnas", level="warning")
-                return articles
+        # Buscar todos los bloques relleno
+        bloques_relleno = soup.find_all("div", class_="relleno")
 
-            # 2. Subir hasta el div.grid que contiene tanto el título como los artículos
-            contenedor_titulo = titulo_columnas.find_parent("div", class_="item-12")
-            if not contenedor_titulo:
-                self.log(
-                    "No se encontró el contenedor del título de Columnas",
-                    level="warning",
-                )
-                return articles
+        if not bloques_relleno:
+            self.log("No se encontraron bloques 'relleno'", level="warning")
+            return articles
 
-            seccion_columnas = contenedor_titulo.find_parent("div", class_="grid")
-            if not seccion_columnas:
-                self.log(
-                    "No se encontró el contenedor principal de Columnas",
-                    level="warning",
-                )
-                return articles
+        for bloque_idx, bloque in enumerate(bloques_relleno, 1):
+            # Buscar el contenedor de notas dentro de cada bloque relleno
+            bloque_notas = bloque.find("div", class_="bloque-notas")
+            if not bloque_notas:
+                continue
 
-            # 3. Buscar todos los div.item-4 que contienen los artículos
-            items_columnas = seccion_columnas.find_all("div", class_="item-4")
-
-            for i, item in enumerate(items_columnas, 1):
+            # Procesar todos los artículos dentro del bloque
+            for i, article_tag in enumerate(
+                bloque_notas.find_all("article", class_="nota--relleno"), 1
+            ):
                 try:
-                    article_tag = item.find("article", class_="nota--gral")
-                    if not article_tag:
-                        continue
-
-                    # Extraer datos del artículo
-                    title_tag = article_tag.find("h2", class_="nota__titulo-item")
-                    if not title_tag:
-                        continue
-
-                    title = self.clean_text(title_tag.get_text())
-
-                    # Obtener URL
-                    link_tag = article_tag.find(
-                        "a", class_="nota__media--link"
-                    ) or title_tag.find_parent("a")
-                    if not link_tag or not link_tag.get("href"):
-                        continue
-
-                    url = urljoin(self.url, link_tag["href"])
-
-                    # Extraer sección específica (ej. "El Escribiente")
-                    volanta_tag = article_tag.find("div", class_="nota__volanta")
-                    seccion = "Columnas"  # Valor por defecto
-                    if volanta_tag and volanta_tag.a and volanta_tag.a.p:
-                        seccion = self.clean_text(volanta_tag.a.p.get_text())
-
-                    articles.append(
-                        {
-                            "fecha": self.get_current_date(),
-                            "medio": self.name,
-                            "titular": title,
-                            "zona_portada": f"columnas_{i}",
-                            "seccion": seccion,
-                            "url": url,
-                        }
+                    article_data = self._parse_generic_article(
+                        cast(Tag, article_tag), f"relleno_{bloque_idx}_{i}"
                     )
+
+                    if article_data:
+                        # Si hay una volantaTop, usarla como sección
+                        volanta_top = article_tag.find("div", class_="nota__volantaTop")
+                        if volanta_top and volanta_top.a and volanta_top.a.p:
+                            article_data["seccion"] = self.clean_text(
+                                volanta_top.a.p.get_text()
+                            )
+
+                        articles.append(article_data)
 
                 except Exception as e:
                     self.log(
-                        f"Error al parsear artículo {i} de Columnas: {e}", level="error"
+                        f"Error al parsear artículo {i} del bloque relleno {bloque_idx}: {e}",
+                        level="error",
                     )
                     continue
 
-        except Exception as e:
-            self.log(
-                f"Error inesperado al procesar sección Columnas: {e}", level="error"
-            )
+        self.log(
+            f"Se encontraron {len(articles)} artículos en bloques 'relleno'",
+            level="info",
+        )
+        return articles
 
-        self.log(f"Se encontraron {len(articles)} artículos en Columnas", level="info")
+    def _parse_bloque_sabana(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+        """Extrae los artículos del bloque 'bloque_sabana'"""
+        articles: List[Dict[str, str]] = []
+        bloque_sabana = soup.find("div", class_="bloque_sabana")
+
+        if not bloque_sabana:
+            self.log("No se encontró el bloque 'bloque_sabana'", level="warning")
+            return articles
+
+        # Buscar el contenedor de notas dentro del bloque
+        bloque_notas = bloque_sabana.find("div", class_="bloque-notas")
+        if not bloque_notas:
+            self.log(
+                "No se encontró el contenedor de notas en bloque_sabana",
+                level="warning",
+            )
+            return articles
+
+        # Procesar todos los artículos dentro del bloque
+        for i, article_tag in enumerate(
+            bloque_notas.find_all("article", class_="nota--relleno"), 1
+        ):
+            try:
+                article_data = self._parse_generic_article(
+                    cast(Tag, article_tag), f"bloque_sabana_{i}"
+                )
+
+                if article_data:
+                    # Si hay una volantaTop, usarla como sección
+                    volanta_top = article_tag.find("div", class_="nota__volantaTop")
+                    if volanta_top and volanta_top.a and volanta_top.a.p:
+                        article_data["seccion"] = self.clean_text(
+                            volanta_top.a.p.get_text()
+                        )
+
+                    articles.append(article_data)
+
+            except Exception as e:
+                self.log(
+                    f"Error al parsear artículo {i} del bloque_sabana: {e}",
+                    level="error",
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en bloque_sabana", level="info"
+        )
+        return articles
+
+    def _parse_d_4notas(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+        """Extrae los artículos del bloque 'd_4Notas'"""
+        articles: List[Dict[str, str]] = []
+        d_4notas = soup.find("div", class_="d_4Notas")
+
+        if not d_4notas:
+            self.log("No se encontró el bloque 'd_4Notas'", level="warning")
+            return articles
+
+        # Buscar el contenedor de notas dentro del bloque
+        grid_relleno = d_4notas.find("div", class_="grid relleno")
+        if not grid_relleno:
+            self.log(
+                "No se encontró el contenedor de notas en d_4Notas", level="warning"
+            )
+            return articles
+
+        # Procesar todos los artículos dentro del bloque
+        for i, article_tag in enumerate(
+            grid_relleno.find_all("article", class_="nota--relleno"), 1
+        ):
+            try:
+                article_data = self._parse_generic_article(
+                    cast(Tag, article_tag), f"d_4notas_{i}"
+                )
+
+                if article_data:
+                    # Si hay una volantaTop, usarla como sección
+                    volanta_top = article_tag.find("div", class_="nota__volantaTop")
+                    if volanta_top and volanta_top.a and volanta_top.a.p:
+                        article_data["seccion"] = self.clean_text(
+                            volanta_top.a.p.get_text()
+                        )
+
+                    articles.append(article_data)
+
+            except Exception as e:
+                self.log(
+                    f"Error al parsear artículo {i} del bloque d_4Notas: {e}",
+                    level="error",
+                )
+                continue
+
+        self.log(f"Se encontraron {len(articles)} artículos en d_4Notas", level="info")
         return articles
 
     # Métodos específicos para cada sección
@@ -396,6 +557,9 @@ class CerodosdostresScraper(NewsScraper):
 
     def _parse_seguridad_section(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         return self._parse_section(soup, "seguridad", "/seguridad")
+
+    def _parse_edicion_5_section(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+        return self._parse_section(soup, "edicion5", "/edicion5")
 
     def _parse_deportes_section(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
         return self._parse_section(soup, "deportes", "/deportes")
@@ -415,16 +579,20 @@ class CerodosdostresScraper(NewsScraper):
                 # Obtener artículos de todas las secciones
                 parsing_methods = [
                     self._parse_apertura_articles,
-                    self._parse_bloque_notas,
+                    self._parse_notas_relleno,  # contiene dos bloques de 8
                     self._parse_mar_del_plata_section,
                     self._parse_argentina_section,
                     self._parse_seguridad_section,
                     self._parse_deportes_section,
-                    self._parse_espectaculos_section,
                     self._parse_propiedades_section,
+                    self._parse_espectaculos_section,
                     self._parse_mas_leidas,
                     self._parse_historias_aca,
-                    self._parse_columnas_section,
+                    self._parse_edicion_5_section,
+                    self._parse_bloque_3notas_sections,  # Virales y columnas
+                    self._parse_bloque_sabana,  # 4 notas debajo de columnas
+                    self._parse_liga_profesional,
+                    self._parse_d_4notas,  # 4 notas debajo de la liga
                 ]
 
                 for method in parsing_methods:
