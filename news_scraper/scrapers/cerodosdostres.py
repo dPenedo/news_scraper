@@ -1,26 +1,25 @@
-from logging import Logger
-from news_scraper.scrapers.base import NewsScraper
-from datetime import date
 from bs4 import BeautifulSoup, Tag
-import requests
 from typing import List, Dict, Optional, cast
 from urllib.parse import urljoin
+import logging
+import requests
+
+from news_scraper.scrapers.base import NewsScraper
 
 
 class CerodosdostresScraper(NewsScraper):
-    def __init__(self, logger: Optional[Logger] = None):
-        super().__init__("0223", "https://www.0223.com.ar", logger)
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        super().__init__(
+            name="0223",
+            url="https://www.0223.com.ar",
+            logger=logger,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         )
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         """Obtiene el contenido HTML y lo parsea con BeautifulSoup"""
         try:
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             return BeautifulSoup(response.text, "html.parser")
         except requests.RequestException as e:
@@ -32,14 +31,12 @@ class CerodosdostresScraper(NewsScraper):
     ) -> Optional[Dict[str, str]]:
         """Método genérico para parsear cualquier artículo"""
         try:
-            # Convertir a Tag para ayudar al type checker
             article_tag = cast(Tag, article_tag)
-
             title_tag = article_tag.find("h2", class_="nota__titulo-item")
             if not title_tag:
                 return None
 
-            title = title_tag.get_text(strip=True)
+            title = self.clean_text(title_tag.get_text())
 
             # El enlace puede estar en el título o en el contenedor principal
             link_tag: Optional[Tag] = None
@@ -57,12 +54,12 @@ class CerodosdostresScraper(NewsScraper):
             volanta = article_tag.find("div", class_="nota__volanta")
             seccion = ""
             if volanta and volanta.a and volanta.a.p:
-                seccion = volanta.a.p.get_text(strip=True)
+                seccion = self.clean_text(volanta.a.p.get_text())
             else:
                 seccion = zone_name.rsplit("_", 1)[0]
 
             return {
-                "fecha": date.today().isoformat(),
+                "fecha": self.get_current_date(),
                 "medio": self.name,
                 "titular": title,
                 "zona_portada": zone_name,
@@ -124,9 +121,7 @@ class CerodosdostresScraper(NewsScraper):
                     articles.append(article_data)
 
         # Artículos secundarios
-        secondary_articles = apertura_section.find(
-            "div", class_="notas-secundarias"
-        )  # Aqui => un breakpoint
+        secondary_articles = apertura_section.find("div", class_="notas-secundarias")
         if secondary_articles:
             for i, article_tag in enumerate(
                 secondary_articles.find_all("article", class_="nota--gral"), 1
@@ -206,7 +201,7 @@ class CerodosdostresScraper(NewsScraper):
             self.log("No se encontró la sección de Más Leídas", level="warning")
             return articles
 
-        # Encontrar el bloque de notas para desktop (contiene las 5 más leídas)
+        # Encontrar el bloque de notas para desktop
         bloque_notas = mas_leidas_section.find("div", class_="bloque-notas-desktop")
         if not bloque_notas:
             self.log("No se encontró el bloque de notas más leídas", level="warning")
@@ -224,7 +219,7 @@ class CerodosdostresScraper(NewsScraper):
                 if not title_tag:
                     continue
 
-                title = title_tag.get_text(strip=True)
+                title = self.clean_text(title_tag.get_text())
                 url = (
                     urljoin(self.url, title_tag.parent["href"])
                     if title_tag.parent
@@ -233,7 +228,7 @@ class CerodosdostresScraper(NewsScraper):
 
                 articles.append(
                     {
-                        "fecha": date.today().isoformat(),
+                        "fecha": self.get_current_date(),
                         "medio": self.name,
                         "titular": title,
                         "zona_portada": f"mas_leidas_{ranking}",
@@ -241,7 +236,6 @@ class CerodosdostresScraper(NewsScraper):
                         "url": url,
                     }
                 )
-
             except Exception as e:
                 self.log(f"Error al parsear artículo más leído: {e}", level="error")
                 continue
@@ -351,7 +345,7 @@ class CerodosdostresScraper(NewsScraper):
                     if not title_tag:
                         continue
 
-                    title = title_tag.get_text(strip=True)
+                    title = self.clean_text(title_tag.get_text())
 
                     # Obtener URL
                     link_tag = article_tag.find(
@@ -366,11 +360,11 @@ class CerodosdostresScraper(NewsScraper):
                     volanta_tag = article_tag.find("div", class_="nota__volanta")
                     seccion = "Columnas"  # Valor por defecto
                     if volanta_tag and volanta_tag.a and volanta_tag.a.p:
-                        seccion = volanta_tag.a.p.get_text(strip=True)
+                        seccion = self.clean_text(volanta_tag.a.p.get_text())
 
                     articles.append(
                         {
-                            "fecha": date.today().isoformat(),
+                            "fecha": self.get_current_date(),
                             "medio": self.name,
                             "titular": title,
                             "zona_portada": f"columnas_{i}",
@@ -415,26 +409,32 @@ class CerodosdostresScraper(NewsScraper):
         titulares: List[Dict[str, str]] = []
 
         try:
-            soup = self._get_soup(self.url)
+            with self:  # Usamos el context manager para manejo de recursos
+                soup = self._get_soup(self.url)
 
-            # Obtener artículos de apertura (destacados)
-            titulares.extend(self._parse_apertura_articles(soup))
+                # Obtener artículos de todas las secciones
+                parsing_methods = [
+                    self._parse_apertura_articles,
+                    self._parse_bloque_notas,
+                    self._parse_mar_del_plata_section,
+                    self._parse_argentina_section,
+                    self._parse_seguridad_section,
+                    self._parse_deportes_section,
+                    self._parse_espectaculos_section,
+                    self._parse_propiedades_section,
+                    self._parse_mas_leidas,
+                    self._parse_historias_aca,
+                    self._parse_columnas_section,
+                ]
 
-            # Obtener artículos del bloque de notas
-            titulares.extend(self._parse_bloque_notas(soup))
+                for method in parsing_methods:
+                    try:
+                        titulares.extend(method(soup))
+                    except Exception as e:
+                        self.log(f"Error en {method.__name__}: {e}", level="error")
+                        continue
 
-            # Obtener artículos de secciones específicas
-            titulares.extend(self._parse_mar_del_plata_section(soup))
-            titulares.extend(self._parse_argentina_section(soup))
-            titulares.extend(self._parse_seguridad_section(soup))
-            titulares.extend(self._parse_deportes_section(soup))
-            titulares.extend(self._parse_espectaculos_section(soup))
-            titulares.extend(self._parse_propiedades_section(soup))
-            titulares.extend(self._parse_mas_leidas(soup))
-            titulares.extend(self._parse_historias_aca(soup))
-            titulares.extend(self._parse_columnas_section(soup))
-
-            self.log(f"Total de titulares encontrados: {len(titulares)}")
+                self.log(f"Total de titulares encontrados: {len(titulares)}")
 
         except Exception as e:
             self.log(f"Error durante el scraping: {e}", level="error")

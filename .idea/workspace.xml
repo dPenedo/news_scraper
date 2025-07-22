@@ -5,8 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="87da4f45-8d73-4f80-960f-fd9d8a53aaf3" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/data/titulares.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/titulares.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/news_scraper/scrapers/lacapital.py" beforeDir="false" afterPath="$PROJECT_DIR$/news_scraper/scrapers/lacapital.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/July-2025-titulares.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/July-2025-titulares.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/que.csv" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,9 +20,9 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file:///usr/lib64/python3.13/email/mime/application.py" root0="SKIP_INSPECTION" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 4
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
   <component name="ProjectId" id="300mfPaeaJ0L2Sl6Ii8SHg7InYl" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -41,6 +42,11 @@
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "reference.settingsdialog.IDE.editor.colors.Language Defaults",
     "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "HarpoonJumpList": [
+      "/home/daniel/Documentos/repos/news_scraper/news_scraper/scrapers/base.py"
+    ]
   }
 }]]></component>
   <component name="SharedIndexes">
@@ -59,6 +65,7 @@
       <option name="presentableId" value="Default" />
       <updated>1752772971517</updated>
       <workItem from="1752772982702" duration="1769000" />
+      <workItem from="1753195017309" duration="854000" />
     </task>
     <servers />
   </component>
