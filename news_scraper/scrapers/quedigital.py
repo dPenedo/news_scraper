@@ -16,14 +16,14 @@ class QueDigitalScraper(NewsScraper):
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",  # Actualizado a versión más reciente
         )
 
-        # Configuración de cookies (simulando consentimiento)
-        self.session.cookies.update({"cookie_consent": "true", "gdpr": "accepted"})
+        # # Configuración de cookies (simulando consentimiento)
+        # self.session.cookies.update({"cookie_consent": "true", "gdpr": "accepted"})
+        #
+        # # Deshabilitar verificación SSL si hay problemas (útil en entornos corporativos)
+        # self.session.verify = False  # ¡Solo para desarrollo!
 
-        # Deshabilitar verificación SSL si hay problemas (útil en entornos corporativos)
-        self.session.verify = False  # ¡Solo para desarrollo!
-
-        print(f"Requests version: {requests.__version__}")
-        print(f"Session headers: {self.session.headers}")
+        # print(f"Requests version: {requests.__version__}")
+        # print(f"Session headers: {self.session.headers}")
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         """Obtiene el contenido HTML y lo parsea con BeautifulSoup"""
@@ -86,45 +86,44 @@ class QueDigitalScraper(NewsScraper):
     def _parse_superfeatured_articles(self, soup: BeautifulSoup) -> List[Dict]:
         """Extrae los artículos super destacados"""
         articles = []
-        superfeatured_section = soup.find("div", id="super-destacada")
+        superfeatured_section = soup.find_all("div", class_="super-destacada")
 
         if not superfeatured_section:
-            self.log("No se encontró la sección de super-destacada", level="warning")
-            return articles
-
-        # Buscar el h1 correcto que contiene el enlace (no el widgettitle)
-        title_tags = superfeatured_section.find_all("h1")
-        title_tag = next((tag for tag in title_tags if not tag.get("class")), None)
-        print("title_tag => ", title_tag)
-        if not title_tag or not title_tag.a:
             self.log(
-                "No se encontró el título con enlace en super-destacada",
-                level="warning",
+                "No se encontró ninguna sección de super-destacada", level="warning"
             )
             return articles
 
-        try:
-            title = self.clean_text(title_tag.get_text())
-            url = urljoin(self.url, title_tag.a["href"])
-            seccion = self._extract_section_from_url(url)
+        for i, section in enumerate(superfeatured_section, 1):
+            # Buscar el h1 correcto que contiene el enlace (no el widgettitle)
+            title_tags = section.find_all("h1")
+            title_tag = next((tag for tag in title_tags if not tag.get("class")), None)
+            if title_tag:
+                try:
+                    title = self.clean_text(title_tag.get_text())
+                    url = urljoin(self.url, title_tag.a["href"])
+                    seccion = self._extract_section_from_url(url)
 
-            articles.append(
-                {
-                    "fecha": self.get_current_date(),
-                    "medio": self.name,
-                    "titular": title,
-                    "zona_portada": "super-destacada",
-                    "seccion": seccion,
-                    "url": url,
-                }
-            )
+                    articles.append(
+                        {
+                            "fecha": self.get_current_date(),
+                            "medio": self.name,
+                            "titular": title,
+                            "zona_portada": "super-destacada",
+                            "seccion": seccion,
+                            "url": url,
+                        }
+                    )
 
-            self.log(f"Artículo super destacado encontrado: {title}", level="info")
-            return articles
+                    self.log("Se encontro 1 artículo en super-destacada", level="info")
 
-        except Exception as e:
-            self.log(f"Error al parsear artículo super destacado: {e}", level="error")
-            return articles
+                except Exception as e:
+                    self.log(
+                        f"Error al parsear artículo super destacado: {e}", level="error"
+                    )
+                    continue
+
+        return articles
 
     def _parse_recent_articles(self, soup: BeautifulSoup) -> List[Dict]:
         """Extrae los artículos recientes"""
@@ -263,6 +262,50 @@ class QueDigitalScraper(NewsScraper):
 
         self.log(
             f"Se encontraron {len(articles)} artículos en doble_inferior", level="info"
+        )
+        return articles
+
+    def _parse_quadruple_inferior_articles(self, soup: BeautifulSoup) -> List[Dict]:
+        """Extrae los artículos del grupo cuadruple inferior"""
+        articles = []
+        section = soup.find("div", id="sidebar-grupo-cuadruple-inferior")
+
+        if not section:
+            self.log("No se encontró la zona cuadruple inferior", level="warning")
+            return articles
+
+        for post in section.find_all("div", class_="widget_singlepostwidget"):
+            try:
+                title_tag = post.find("h2", class_="titulogrupo")
+                if not title_tag:
+                    continue
+
+                title = self.clean_text(title_tag.get_text())
+                url = post.find("a")["href"] if post.find("a") else ""
+                if not url:
+                    continue
+
+                url = urljoin(self.url, url)
+                seccion = self._extract_section_from_url(url)
+
+                articles.append(
+                    {
+                        "fecha": self.get_current_date(),
+                        "medio": self.name,
+                        "titular": title,
+                        "zona_portada": "triple_inferior",
+                        "seccion": seccion,
+                        "url": url,
+                    }
+                )
+            except Exception as e:
+                self.log(
+                    f"Error al parsear artículo triple inferior: {e}", level="error"
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en triple_inferior", level="info"
         )
         return articles
 
@@ -435,6 +478,7 @@ class QueDigitalScraper(NewsScraper):
                     self._parse_special_articles,
                     self._parse_superfeatured_articles,
                     self._parse_double_inferior_articles,
+                    self._parse_quadruple_inferior_articles,
                     self._parse_triple_inferior_articles,
                     self._parse_mas_vistas_articles,
                     self._parse_deportes_articles,

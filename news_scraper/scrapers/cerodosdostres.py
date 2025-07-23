@@ -291,7 +291,7 @@ class CerodosdostresScraper(NewsScraper):
                     continue
 
         self.log(
-            f"Se encontraron un total de {len(articles)} artículos en las secciones 'bloque-3notas (Virales y columnas)'.",
+            f"Se encontraron {len(articles)} artículos en las secciones 'bloque-3notas (Virales y columnas)'.",
             level="info",
         )
         return articles

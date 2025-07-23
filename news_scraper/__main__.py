@@ -1,3 +1,4 @@
+from news_scraper.scrapers.lacapital import LaCapitalScraper
 from news_scraper.utils.csv_writer import CSVWriter
 from news_scraper.utils.log_writer import LogWriter
 from news_scraper.utils.constants import CSV_FILENAME, LOG_FILENAME
@@ -39,7 +40,7 @@ def main():
     writer.write_headers()
 
     # Lista de scrapers a ejecutar
-    scrapers = [QueDigitalScraper, CerodosdostresScraper]
+    scrapers = [QueDigitalScraper, CerodosdostresScraper, LaCapitalScraper]
 
     for scraper_class in scrapers:
         run_scraper(scraper_class, logger, writer)
