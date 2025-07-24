@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Dict, Optional, Any
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup, Tag
@@ -22,6 +23,7 @@ class LaCapitalScraper(NewsScraper):
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
+            response.encoding = "utf-8"
             return BeautifulSoup(response.text, "html.parser")
         except requests.RequestException as e:
             self.log(f"Error al obtener la página: {e}", level="error")
@@ -36,7 +38,6 @@ class LaCapitalScraper(NewsScraper):
             section_map = {
                 "policiales": "Policiales",
                 "la-ciudad": "La Ciudad",
-                "el-pais": "El País",
                 "el-mundo": "El Mundo",
                 "interes-general": "Interés General",
                 "temas": "Especiales",
@@ -161,15 +162,17 @@ class LaCapitalScraper(NewsScraper):
                 url = urljoin(self.url, link["href"])
                 title = self.clean_text(link.get_text(strip=True))
 
-                # Eliminamos el número del título (ej: "1matan a un..." -> "matan a un...")
-                title = " ".join(title.split()[1:]) if title.split() else title
-
+                try:
+                    int(title[0])
+                    title = title[1:]
+                except Exception:
+                    pass
                 articles.append(
                     {
                         "fecha": self.get_current_date(),
                         "medio": self.name,
                         "titular": title,
-                        "zona_portada": f"Ranking - {section_title}",
+                        "zona_portada": "Ranking",
                         "seccion": self._extract_section_from_url(url),
                         "url": url,
                     }
@@ -182,72 +185,27 @@ class LaCapitalScraper(NewsScraper):
         self.log(
             f"Se encontraron {len(articles)} artículos en {section_title}", level="info"
         )
-        return articles
 
-    def _parse_canal2_section(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """Extrae los titulares de Canal 2"""
-        articles = []
-
-        # Buscamos el contenedor principal de la sección Canal 2
-        canal2_section = soup.find("h3", string="Canal 2").find_parent(
-            "div", class_="col-12"
-        )
-
-        if not canal2_section:
-            self.log("No se encontró la sección de Canal 2", level="warning")
-            return articles
-
-        # Buscamos todos los items de Canal 2
-        canal2_items = canal2_section.find_all(
-            "div", class_=["col-xs-6", "col-sm-6", "col-md-6", "col-lg-6"]
-        )
-
-        for item in canal2_items:
-            try:
-                link = item.find("a")
-                if not link or not link.get("href"):
-                    continue
-
-                url = link["href"]
-                title = (
-                    self.clean_text(item.find("p").get_text(strip=True))
-                    if item.find("p")
-                    else ""
-                )
-
-                articles.append(
-                    {
-                        "fecha": self.get_current_date(),
-                        "medio": "Canal 2",  # Especificamos que viene de Canal 2
-                        "titular": title,
-                        "zona_portada": "Sección - Canal 2",
-                        "seccion": "Televisión",
-                        "url": url,
-                    }
-                )
-
-            except Exception as e:
-                self.log(f"Error al procesar artículo de Canal 2: {e}", level="error")
-                continue
-
-        self.log(f"Se encontraron {len(articles)} titulares de Canal 2", level="info")
         return articles
 
     def _parse_el_pais_section(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """Extrae los artículos de la sección 'El país'"""
+        """Extrae los artículos de la sección 'El pais'"""
         articles = []
-        # WARN: no va
+
+        today_block = soup.find("section", class_="today_block")
 
         # Buscamos la sección por su título
-        section_title = soup.find("h3", string="el país")
-        print("section_title => ", section_title)
+        el_pais_matches = soup.find_all("h3", text=re.compile("El País"), class_=None)
+        section_title = ""
+        for match in el_pais_matches:
+            if match.find_parent("div", class_="section__title"):
+                section_title = match
         if not section_title:
-            self.log("No se encontró la sección 'El país'", level="warning")
+            self.log("No se encontró la sección 'El pais'", level="warning")
             return articles
 
         # Buscamos el contenedor principal de los artículos
         section = section_title.find_parent("div", class_="row")
-        print("section => ", section)
         if not section:
             return articles
 
@@ -276,31 +234,212 @@ class LaCapitalScraper(NewsScraper):
                 seccion = (
                     self.clean_text(category_tag.get_text(strip=True))
                     if category_tag
-                    else "El país"
+                    else "El pais"
                 )
-
-                # Extraer la imagen si existe
-                img_tag = article.find("img")
-                img_url = img_tag["src"] if img_tag and img_tag.get("src") else ""
-
                 articles.append(
                     {
                         "fecha": self.get_current_date(),
                         "medio": self.name,
                         "titular": title,
-                        "zona_portada": "Sección - El país",
+                        "zona_portada": "El pais",
                         "seccion": seccion,
                         "url": url,
-                        "imagen": img_url,
                     }
                 )
 
             except Exception as e:
-                self.log(f"Error al procesar artículo de 'El país': {e}", level="error")
+                self.log(f"Error al procesar artículo de 'El pais': {e}", level="error")
                 continue
 
         self.log(
-            f"Se encontraron {len(articles)} artículos en la sección 'El país'",
+            f"Se encontraron {len(articles)} artículos en la sección 'El pais'",
+            level="info",
+        )
+        return articles
+
+    def _parse_espectaculos_section(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
+        """Extrae los artículos de la sección 'Espectáculos'"""
+        articles = []
+
+        heading3 = soup.find_all("h3")
+
+        espectaculos_title = ""
+        for h3 in heading3:
+            if h3.text == "ESPECTÁCULOS":
+                espectaculos_title = h3
+
+        container = espectaculos_title.find_parent("div", class_="container")
+
+        articles_html = container.find_all("article", class_="nota")
+
+        for article in articles_html:
+            try:
+                title_tag = None
+
+                main_title = article.find("h1")
+                h2_title = article.find("h2", class_="font-medium")
+                if main_title:
+                    title_tag = main_title
+                elif h2_title:
+                    title_tag = h2_title
+                if not title_tag:
+                    continue
+
+                title = self.clean_text(title_tag.get_text(strip=True))
+                if not title:
+                    continue
+
+                # Extraer la URL
+                link = title_tag.find("a")
+                if not link or not link.get("href"):
+                    continue
+                url = urljoin(self.url, link["href"])
+
+                # Extraer la sección
+                category_tag = article.find("h3", class_="nota__categoria")
+                seccion = (
+                    self.clean_text(category_tag.get_text(strip=True))
+                    if category_tag
+                    else "Espectaculos"
+                )
+                articles.append(
+                    {
+                        "fecha": self.get_current_date(),
+                        "medio": self.name,
+                        "titular": title,
+                        "zona_portada": "Espectaculos",
+                        "seccion": seccion,
+                        "url": url,
+                    }
+                )
+            except Exception as e:
+                self.log(
+                    f"Error al procesar artículo de 'Espectaculos': {e}", level="error"
+                )
+                continue
+        self.log(
+            f"Se encontraron {len(articles)} artículos en la sección 'Espectaculos'",
+            level="info",
+        )
+
+        return articles
+
+    def _parse_deportes_section(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
+        """Extrae los artículos de la sección 'Deportes'"""
+        articles = []
+
+        section_deportes = soup.find("section", class_="section--214")
+
+        if not section_deportes:
+            return articles
+
+        # Buscamos todos los artículos en esta sección
+        articles_html = section_deportes.find_all("article", class_="nota")
+
+        for article in articles_html:
+            try:
+                title_tag = None
+
+                main_title = article.find("h1")
+                h2_title = article.find("h2", class_="font-medium")
+                if main_title:
+                    title_tag = main_title
+                elif h2_title:
+                    title_tag = h2_title
+                if not title_tag:
+                    continue
+
+                title = self.clean_text(title_tag.get_text(strip=True))
+                if not title:
+                    continue
+
+                # Extraer la URL
+                link = title_tag.find("a")
+                if not link or not link.get("href"):
+                    continue
+                url = urljoin(self.url, link["href"])
+
+                # Extraer la sección
+                category_tag = article.find("h3", class_="nota__categoria")
+                seccion = (
+                    self.clean_text(category_tag.get_text(strip=True))
+                    if category_tag
+                    else "El pais"
+                )
+                articles.append(
+                    {
+                        "fecha": self.get_current_date(),
+                        "medio": self.name,
+                        "titular": title,
+                        "zona_portada": "Deportes",
+                        "seccion": seccion,
+                        "url": url,
+                    }
+                )
+
+            except Exception as e:
+                self.log(
+                    f"Error al procesar artículo de 'Deportes': {e}", level="error"
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en la sección 'Deportes'",
+            level="info",
+        )
+        return articles
+
+    def _parse_tecnologia_section(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
+        """Extrae los artículos de la sección 'tecnologia,'"""
+        articles = []
+
+        horizontal_container = soup.find("div", class_="notas_horizontal")
+
+        articles_html = horizontal_container.find_all("article", class_="nota")
+
+        for article in articles_html:
+            try:
+                # Extraer el titular
+                title_tag = article.find("h2", class_="font-medium")
+                if not title_tag:
+                    continue
+
+                title = self.clean_text(title_tag.get_text(strip=True))
+                if not title:
+                    continue
+
+                # Extraer la URL
+                link = title_tag.find("a")
+                if not link or not link.get("href"):
+                    continue
+                url = urljoin(self.url, link["href"])
+
+                # Extraer la sección
+                category_tag = article.find("h3", class_="nota__categoria")
+                seccion = (
+                    self.clean_text(category_tag.get_text(strip=True))
+                    if category_tag
+                    else "El pais"
+                )
+                articles.append(
+                    {
+                        "fecha": self.get_current_date(),
+                        "medio": self.name,
+                        "titular": title,
+                        "zona_portada": "Tecnologia",
+                        "seccion": seccion,
+                        "url": url,
+                    }
+                )
+
+            except Exception as e:
+                self.log(
+                    f"Error al procesar artículo de 'Tecnologia': {e}", level="error"
+                )
+                continue
+
+        self.log(
+            f"Se encontraron {len(articles)} artículos en la sección 'Tecnologia'",
             level="info",
         )
         return articles
@@ -352,12 +491,13 @@ class LaCapitalScraper(NewsScraper):
         try:
             soup = self._get_soup(self.url)
 
-            # Procesamos las secciones manteniendo la estructura original
             news.extend(self._parse_principal_section(soup))
             news.extend(self._parse_regular_sections(soup))
-            news.extend(self._parse_ranking_section(soup))
-            news.extend(self._parse_canal2_section(soup))
             news.extend(self._parse_el_pais_section(soup))
+            news.extend(self._parse_tecnologia_section(soup))
+            news.extend(self._parse_deportes_section(soup))
+            news.extend(self._parse_espectaculos_section(soup))
+            news.extend(self._parse_ranking_section(soup))
 
             self.log(f"Total de noticias encontradas: {len(news)}", level="info")
             return news

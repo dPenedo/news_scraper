@@ -30,6 +30,7 @@ class QueDigitalScraper(NewsScraper):
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
+            response.encoding = "utf-8"
             return BeautifulSoup(response.text, "html.parser")
         except requests.RequestException as e:
             self.log(f"Error al obtener la página: {e}", level="error")
