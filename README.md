@@ -54,7 +54,7 @@ cd news_scraper
 Desde dentro de la carpeta del proyecto:
 
 ```sh
-python -m venv venv
+python -m venv env
 ```
 
 **Activar** el entorno virtual (esto cambia según la consola):
@@ -62,16 +62,16 @@ python -m venv venv
 En CMD:
 
 ```sh
-venv\Scripts\activate.bat
+env\Scripts\activate.bat
 ```
 
 En PowerShell:
 
 ```sh
-venv\Scripts\Activate.ps1
+env\Scripts\Activate.ps1
 ```
 
-Deberías ver algo como (venv) al principio de la línea.
+Deberías ver algo como (env) al principio de la línea.
 
 ## Instalar dependencias
 
