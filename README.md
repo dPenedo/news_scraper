@@ -1,129 +1,117 @@
 # News Scraper
 
-Este proyecto permite **extraer titulares de noticias** de medios marplatenses y guardar los resultados en un archivo CSV.
+This project scrapes **news headlines** from local newspapers in Mar del Plata (Argentina) and stores the results in a CSV file.
 
 ---
 
-## Requisitos previos
+## ⚙️ Requirements
 
-Antes de comenzar, asegurate de tener instalados:
+Before you start, make sure you have the following installed:
 
-- [Python 3.10 o superior](https://www.python.org/downloads/windows/)
-- [Git para Windows](https://git-scm.com/download/win)
+- [Python 3.10 or later](https://www.python.org/downloads/)
+- [Git](https://git-scm.com/)
 
----
+--
 
-### Instalar Python
+## 🚀 Installation
 
-1. Ir a [python.org/downloads](https://www.python.org/downloads/)
-2. Descargar el instalador de Windows (elegir 32 o 64 bits según tu computadora).
-3. Ejecutar el instalador y **marcar la opción “Add Python to PATH”** antes de hacer clic en “Install Now”.
-4. Al finalizar, abrir una consola (CMD o PowerShell) y escribir:
+### Clone the repository
 
-```sh
-python --version
+Open a terminal and run:
+
 ```
-
-Deberías ver algo como: Python 3.11.6
-
-### Instalar Git
-
-1. Ir a [git-scm.com/download/win](git-scm.com/download/win)
-
-2. La descarga empezará automáticamente. Instalar con la configuración por defecto.
-
-3. Abrir una consola (CMD o PowerShell) y escribir:
-
-```sh
-git --version
-```
-
-## Instalación
-
-### Clonar el repositorio
-
-Abrí la consola y ejecutá:
-
-```sh
 git clone https://github.com/dPenedo/news_scraper.git
 cd news_scraper
 ```
 
-### Crear entorno virtual
+### Create a virtual environment
 
-Desde dentro de la carpeta del proyecto:
+Inside the project folder:
 
-```sh
+```
 python -m venv env
 ```
 
-**Activar** el entorno virtual (esto cambia según la consola):
+Activate the virtual environment:
 
-En CMD:
+- Linux/macOS:
 
 ```sh
+source env/bin/activate
+```
+
+- CMD:
+
+```
 env\Scripts\activate.bat
 ```
 
-En PowerShell:
+- PowerShell:
 
-```sh
+```
 env\Scripts\Activate.ps1
 ```
 
-Deberías ver algo como (env) al principio de la línea.
+You should now see `(env)` at the beginning of the terminal prompt.
 
-## Instalar dependencias
+---
 
-Con el entorno virtual activo:
+## 📦 Install dependencies
 
-```sh
+With the virtual environment active, run:
+
+```
 pip install -r requirements.txt
 ```
 
-### Uso
+---
 
-Con el entorno virtual activado, ejecutar:
+## ▶️ Usage
 
-```sh
+With the environment activated, run:
+
+```
 python -m news_scraper
 ```
 
-Los resultados se guardarán como archivo `.csv` en la carpeta del proyecto.
+The results will be saved as a `.csv` file in the project folder.
 
-## Formato del archivo CSV
+---
 
-Cada fila representa una noticia. Las columnas son:
+## 📄 CSV Format
 
-- Fecha
+Each row represents a news article. The columns are:
 
-- Medio (1 = lacapitalmdp, 2 = 0223.com.ar, 3 = quedigital)
+- **Date**
+- **Source** (lacapitalmdp, 0223, quedigital)
+- **Headline**
+- **Front page zone** (depends on how the media outlet labels it)
+- **Section** (varies by outlet):
+  - QueDigital: uses traditional sections (society, culture, sports…)
+  - 0223: uses loose tags (e.g., Robbery, Violence, Attempted Femicide, Weather)
+- **URL**
 
-- Titular
+---
 
-- Zona_portada: depende del nombre que tome en cada medio
+## 🧱 Project Structure and Features
 
-- Seccion: depende de cómo el medio clasifique sus secciones.
-  - QueDigital: lo hace por secciones clásicas (sociedad, cultrua, deportes, ...)
-  - 0223: utiliza etiquetas/tags menos precisas (Robo, Violencia, Intento de Femicidio,Clima)
+- Uses `requests` and `BeautifulSoup` for HTML parsing.
+- Logs events such as collected headlines, errors, and timestamps using Python’s built-in `logging` module.
+- Written in Python using an **object-oriented structure** with custom classes for scraping and data handling.
+- Modular design makes it easy to extend or adapt for other sources.
 
-- URL
+---
 
-## Info de la matriz
+## 🛡️ Disclaimer
 
-> Categoría general, subcategoría, actores, lugar geográfico y alineamiento político deben completarse manualmente o en una segunda etapa.
+This project was developed for academic purposes by a research group based in Mar del Plata. The script collects publicly available news metadata (titles, URLs, tags) and **does not store or redistribute full article content**.
 
-La matriz completa es la siguiente:
+This code is not intended for commercial use. Always respect the [terms of service](https://www.lacapitalmdp.com/terminos-y-condiciones/) of the websites you interact with.
 
-- **Fecha**
-- **Medio**:
-  - 1 = lacapitalmdp
-  - 2 = 0223.com.ar
-  - 3 = quedigital
-- **titulo**
-- Categoría general
-- Subcategoría
-- Actores mencionados
-- Lugar geográfico referido
-- alineamiento político o la tendencia pro/anti gubernamental
-- Dudas: deben ser indicadas las dudas de codificación por medio de comentarios.
+If you use this code, ensure your use complies with applicable laws and the policies of the media outlets.
+
+---
+
+## 🌎 About the Project
+
+This scraper is part of a broader sociological study analyzing media coverage patterns in local news. It runs daily as an [AWS Lambda](https://aws.amazon.com/lambda/) function and stores results in an [S3 bucket](https://aws.amazon.com/s3/).
