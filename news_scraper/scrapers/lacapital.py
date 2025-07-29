@@ -465,11 +465,17 @@ class LaCapitalScraper(NewsScraper):
             url = urljoin(self.url, link["href"])
 
             # Extraer la sección
+            # WARN: Cambios, medio raro no anda
             category_tag = article.find("h3", class_="nota__categoria")
             if category_tag:
-                seccion = self.clean_text(category_tag.get_text(strip=True))
+                print("category_tag len => ", len(category_tag))
+                print("category_tag => ", category_tag)
+                if len(category_tag) > 30:
+                    seccion = "Ranking"
+                else:
+                    seccion = self.clean_text(category_tag.get_text(strip=True))
             else:
-                seccion = self._extract_section_from_url(url)
+                seccion = "Textuales"
 
             return {
                 "fecha": self.get_current_date(),
